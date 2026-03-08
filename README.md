@@ -107,3 +107,23 @@ headline keywords. To enable AI summarization:
 
 If the summarization model cannot be loaded for any reason, the code automatically
 falls back to the heuristic reason generator, so failures are graceful.
+
+---
+
+## Streamlit dashboard
+
+This project now stores alert history in `data/alerts_history.csv` and includes a
+dashboard with filters for date, symbol, sector, reason type, hit-rate, and PnL.
+
+Run:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Optional custom history path:
+
+```bash
+export ALERT_HISTORY_PATH=/path/to/alerts_history.csv
+streamlit run dashboard/app.py
+```

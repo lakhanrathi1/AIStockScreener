@@ -8,6 +8,7 @@ import requests
 
 from .config import Settings
 from .nse_client import StockMove
+from .reason_metadata import ReasonMeta
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class TelegramClient:
         trade_date: str,
         movers: Iterable[StockMove],
         reasons_by_symbol: dict[str, str],
+        reason_meta_by_symbol: dict[str, ReasonMeta] | None = None,
     ) -> None:
         movers_list = list(movers)
         if not movers_list:
@@ -55,10 +57,18 @@ class TelegramClient:
         for m in movers_list:
             pct = f"{m.percent_change:.2f}%"
             reason = reasons_by_symbol.get(m.symbol, "")
+            meta = (reason_meta_by_symbol or {}).get(m.symbol)
             snippet_raw = reason[:220] + ("…" if len(reason) > 220 else "")
             snippet = html.escape(snippet_raw)
             symbol = html.escape(m.symbol)
-            line = f"• <code>{symbol}</code> <b>{pct}</b> – {snippet}"
+            conf_text = f" [Conf:{meta.confidence}%]" if meta else ""
+            evidence_text = ""
+            if meta and meta.evidence_urls:
+                links: list[str] = []
+                for idx, url in enumerate(meta.evidence_urls[:2], start=1):
+                    links.append(f'<a href="{html.escape(url, quote=True)}">src{idx}</a>')
+                evidence_text = f" ({'|'.join(links)})"
+            line = f"• <code>{symbol}</code> <b>{pct}</b>{conf_text} – {snippet}{evidence_text}"
             if m.direction == "up":
                 up_lines.append(f"{line} ⬆️")
             else:

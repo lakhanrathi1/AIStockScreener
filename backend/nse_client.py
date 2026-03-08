@@ -25,6 +25,7 @@ INDEX_ENDPOINTS = [
 class StockMove:
     symbol: str
     company_name: str
+    sector: str
     last_price: float
     prev_close: float
     percent_change: float
@@ -59,6 +60,22 @@ def _company_name_from_row(row: dict) -> str:
 
     symbol = row.get("symbol")
     return str(symbol) if symbol else ""
+
+
+def _sector_from_row(row: dict) -> str:
+    for key in ("sector", "industry", "industryName"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    meta = row.get("meta")
+    if isinstance(meta, dict):
+        for key in ("industry", "sector", "industryName"):
+            value = meta.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return "Unknown"
 
 
 def fetch_index_snapshot() -> List[dict]:
@@ -100,6 +117,7 @@ def compute_moves(
     for row in snapshot:
         symbol = row.get("symbol")
         company_name = _company_name_from_row(row)
+        sector = _sector_from_row(row)
         last_price = _safe_float(row.get("lastPrice"))
         prev_close = _safe_float(row.get("previousClose") or row.get("closePrice"))
         percent_change = _safe_float(row.get("pChange"))
@@ -116,6 +134,7 @@ def compute_moves(
             StockMove(
                 symbol=symbol,
                 company_name=str(company_name),
+                sector=sector,
                 last_price=last_price,
                 prev_close=prev_close,
                 percent_change=percent_change,

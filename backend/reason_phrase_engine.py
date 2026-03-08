@@ -6,6 +6,7 @@ from typing import Iterable, Optional
 
 from .article_extractor import ExtractedArticle
 from .multi_source_news import ScrapedHeadline
+from .reason_metadata import ReasonMeta
 
 
 @dataclass
@@ -15,6 +16,12 @@ class ReasonCandidate:
     url: str
     reason_phrase: str
     score: int
+
+
+@dataclass
+class ReasonResult:
+    text: str
+    meta: ReasonMeta
 
 
 _PATTERNS: list[re.Pattern[str]] = [
@@ -91,17 +98,39 @@ def build_reason_text(
     percent_change: float,
     candidates: Iterable[ReasonCandidate],
 ) -> str:
+    return build_reason_result(
+        company_name=company_name,
+        direction=direction,
+        percent_change=percent_change,
+        candidates=candidates,
+    ).text
+
+
+def build_reason_result(
+    company_name: str,
+    direction: str,
+    percent_change: float,
+    candidates: Iterable[ReasonCandidate],
+) -> ReasonResult:
     sorted_candidates = sorted(candidates, key=lambda c: c.score, reverse=True)
     if not sorted_candidates:
         trend_word = "rose" if direction == "up" else "fell"
-        return (
+        return ReasonResult(
+            text=(
             f"{company_name} {trend_word} {abs(percent_change):.1f}% with no clearly "
             "extractable trigger phrase from current news."
+            ),
+            meta=ReasonMeta(confidence=35, evidence_urls=[]),
         )
 
     top = sorted_candidates[0]
+    evidence_urls = [c.url for c in sorted_candidates[:2]]
+    confidence = min(95, 55 + top.score * 8)
     trend_word = "surged" if direction == "up" else "declined"
-    return (
-        f"{company_name} {trend_word} {abs(percent_change):.1f}% after {top.reason_phrase}. "
-        f"(Source: {top.publication})"
+    return ReasonResult(
+        text=(
+            f"{company_name} {trend_word} {abs(percent_change):.1f}% after {top.reason_phrase}. "
+            f"(Source: {top.publication})"
+        ),
+        meta=ReasonMeta(confidence=confidence, evidence_urls=evidence_urls),
     )
