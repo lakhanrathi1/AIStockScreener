@@ -30,6 +30,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           REASON_PROVIDER: scraper
+          ALLOW_WEEKEND_RUN: "true"
           LOG_LEVEL: INFO
         run: |
           python -m backend.run_daily_job
