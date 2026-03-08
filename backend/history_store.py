@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
+from pandas.errors import EmptyDataError
 
 
 def _history_path() -> Path:
@@ -20,8 +21,14 @@ def append_alert_rows(rows: Iterable[dict]) -> Path:
         return path
 
     if path.exists():
-        existing = pd.read_csv(path)
-        combined = pd.concat([existing, incoming], ignore_index=True)
+        try:
+            existing = pd.read_csv(path)
+            if existing.empty and len(existing.columns) == 0:
+                combined = incoming
+            else:
+                combined = pd.concat([existing, incoming], ignore_index=True)
+        except (EmptyDataError, FileNotFoundError):
+            combined = incoming
     else:
         combined = incoming
 
