@@ -6,7 +6,7 @@ import os
 from zoneinfo import ZoneInfo
 
 from .config import load_settings
-from .history_store import append_alert_rows
+from .history_store import append_alert_rows, write_daily_rows
 from .logging_utils import configure_logging
 from .news_client import NewsClient
 from .nse_client import compute_moves, select_top_movers
@@ -156,7 +156,9 @@ def main() -> None:
                 }
             )
         history_path = append_alert_rows(history_rows)
+        daily_path = write_daily_rows(history_rows)
         logger.info("Appended %d row(s) to history file: %s", len(history_rows), history_path)
+        logger.info("Updated daily snapshot file: %s", daily_path)
 
         telegram = TelegramClient(settings)
         if reason_provider == "scraper":

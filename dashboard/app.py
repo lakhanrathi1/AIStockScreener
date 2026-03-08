@@ -22,12 +22,65 @@ def _load_history(path: Path) -> pd.DataFrame:
     return df
 
 
+def _load_daily(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(path)
+    if "trade_date" in df.columns:
+        df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce").dt.date
+    for col in ("percent_change", "confidence"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def _render_today_cards(daily_df: pd.DataFrame) -> None:
+    st.subheader("Today's Movers")
+    if daily_df.empty:
+        st.info("No daily snapshot found yet. Run the daily job first.")
+        return
+
+    daily_df = daily_df.sort_values("percent_change", ascending=False)
+    for row in daily_df.to_dict(orient="records"):
+        symbol = row.get("symbol", "")
+        pct = row.get("percent_change", 0.0)
+        company_name = row.get("company_name", "")
+        reason = row.get("reason", "No reason available.")
+        confidence = row.get("confidence", 0)
+        evidence_raw = row.get("evidence_urls", "") or ""
+        evidence_urls = [u.strip() for u in str(evidence_raw).split("|") if u.strip()]
+
+        direction = "⬆️" if float(pct) >= 0 else "⬇️"
+        st.markdown(
+            (
+                f"#### {direction} `{symbol}`  {float(pct):+.2f}%  \n"
+                f"**{company_name}**  \n"
+                f"Confidence: **{int(confidence)}%**"
+            )
+        )
+        st.write(reason)
+        if evidence_urls:
+            links = [f"[src{i+1}]({url})" for i, url in enumerate(evidence_urls[:2])]
+            st.markdown("Evidence: " + " | ".join(links))
+        st.divider()
+
+
 def main() -> None:
     st.set_page_config(page_title="AI Stock Reason Dashboard", layout="wide")
     st.title("AI Stock Reason Dashboard")
 
     history_path = Path(os.getenv("ALERT_HISTORY_PATH", "data/alerts_history.csv"))
+    daily_path = Path(os.getenv("DAILY_ALERT_PATH", "data/daily_alerts.csv"))
+
     df = _load_history(history_path)
+    daily_df = _load_daily(daily_path)
+
+    top_left, top_right = st.columns([2, 1])
+    with top_left:
+        _render_today_cards(daily_df)
+    with top_right:
+        st.subheader("Snapshot Files")
+        st.code(f"History: {history_path}\nDaily: {daily_path}")
 
     if df.empty:
         st.warning(f"No data found at `{history_path}`. Run the daily job first.")

@@ -40,18 +40,18 @@ jobs:
 
       - name: Commit updated alert history
         run: |
-          if [ ! -f data/alerts_history.csv ]; then
-            echo "No history file generated. Skipping commit."
+          if [ ! -f data/alerts_history.csv ] && [ ! -f data/daily_alerts.csv ]; then
+            echo "No data files generated. Skipping commit."
             exit 0
           fi
 
-          if git diff --quiet -- data/alerts_history.csv; then
-            echo "No changes in alert history. Skipping commit."
+          if git diff --quiet -- data/alerts_history.csv data/daily_alerts.csv; then
+            echo "No changes in data files. Skipping commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/alerts_history.csv
-          git commit -m "chore(data): update alerts history [skip ci]"
+          git add data/alerts_history.csv data/daily_alerts.csv
+          git commit -m "chore(data): update daily alerts data [skip ci]"
           git push

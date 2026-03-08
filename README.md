@@ -114,6 +114,8 @@ falls back to the heuristic reason generator, so failures are graceful.
 
 This project now stores alert history in `data/alerts_history.csv` and includes a
 dashboard with filters for date, symbol, sector, reason type, hit-rate, and PnL.
+It also stores the latest daily snapshot in `data/daily_alerts.csv` for a
+"today view" card layout.
 
 Run:
 
@@ -125,5 +127,6 @@ Optional custom history path:
 
 ```bash
 export ALERT_HISTORY_PATH=/path/to/alerts_history.csv
+export DAILY_ALERT_PATH=/path/to/daily_alerts.csv
 streamlit run dashboard/app.py
 ```

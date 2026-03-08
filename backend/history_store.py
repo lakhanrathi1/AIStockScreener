@@ -12,6 +12,10 @@ def _history_path() -> Path:
     return Path(os.getenv("ALERT_HISTORY_PATH", "data/alerts_history.csv"))
 
 
+def _daily_path() -> Path:
+    return Path(os.getenv("DAILY_ALERT_PATH", "data/daily_alerts.csv"))
+
+
 def append_alert_rows(rows: Iterable[dict]) -> Path:
     path = _history_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,4 +37,16 @@ def append_alert_rows(rows: Iterable[dict]) -> Path:
         combined = incoming
 
     combined.to_csv(path, index=False)
+    return path
+
+
+def write_daily_rows(rows: Iterable[dict]) -> Path:
+    path = _daily_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    incoming = pd.DataFrame(list(rows))
+    if incoming.empty:
+        return path
+
+    incoming.to_csv(path, index=False)
     return path
