@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
+import requests
 from nsepython import nsefetch
 
 logger = logging.getLogger(__name__)
@@ -11,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 INDEX_ENDPOINTS = [
     # NIFTY 50
-    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%2050",
+    "https://www.nseindia.com/api/equity-stock-indices?index=NIFTY%2050",
     # NIFTY NEXT 50
-    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20NEXT%2050",
+    "https://www.nseindia.com/api/equity-stock-indices?index=NIFTY%20NEXT%2050",
     # NIFTY MIDCAP 100
-    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20MIDCAP%20100",
+    "https://www.nseindia.com/api/equity-stock-indices?index=NIFTY%20MIDCAP%20100",
     # NIFTY SMALLCAP 100
-    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20SMALLCAP%20100",
+    "https://www.nseindia.com/api/equity-stock-indices?index=NIFTY%20SMALLCAP%20100",
 ]
 
 
@@ -78,6 +79,59 @@ def _sector_from_row(row: dict) -> str:
     return "Unknown"
 
 
+def _is_equity_row(row: dict) -> bool:
+    series = row.get("series")
+    market_type = row.get("marketType")
+    identifier = row.get("identifier")
+    symbol = row.get("symbol")
+
+    if series == "EQ":
+        return True
+    if market_type == "N" and isinstance(identifier, str) and identifier.endswith("EQN"):
+        return True
+    if isinstance(symbol, str) and symbol.upper().startswith("NIFTY"):
+        return False
+    return False
+
+
+def _fetch_endpoint(url: str) -> List[dict]:
+    """
+    NSE sometimes blocks one client path while allowing another.
+    Try nsepython first, then direct requests with browser-like headers.
+    """
+    try:
+        payload = nsefetch(url)
+        data = payload.get("data") or []
+        if isinstance(data, list) and data:
+            return data
+    except Exception as exc:
+        logger.warning("nsefetch failed for %s: %s", url, exc)
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0 Safari/537.36"
+        ),
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://www.nseindia.com/",
+        "Origin": "https://www.nseindia.com",
+    }
+    try:
+        with requests.Session() as session:
+            session.get("https://www.nseindia.com", headers=headers, timeout=10)
+            response = session.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+            data = payload.get("data") or []
+            if isinstance(data, list):
+                return data
+    except Exception as exc:
+        logger.exception("Direct NSE fetch failed for %s: %s", url, exc)
+
+    return []
+
+
 def fetch_index_snapshot() -> List[dict]:
     """
     Fetch a combined snapshot of all stocks in the configured NSE indices
@@ -89,12 +143,11 @@ def fetch_index_snapshot() -> List[dict]:
 
     for url in INDEX_ENDPOINTS:
         logger.info("Fetching index snapshot: %s", url)
-        payload = nsefetch(url)
-        data = payload.get("data") or []
+        data = _fetch_endpoint(url)
         logger.info("Fetched %d rows from endpoint", len(data))
         for row in data:
             symbol = row.get("symbol")
-            if not symbol:
+            if not symbol or not _is_equity_row(row):
                 continue
             combined[str(symbol)] = row
 
